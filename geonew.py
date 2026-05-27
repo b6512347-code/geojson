@@ -69,7 +69,7 @@ DATA_CAR15 = [
     ("สุรนิเวศ15A",                              14.891409, 102.018186,  2.2),
     ("สุรนิเวศ15B",                              14.890995, 102.0184,    1.3),
     ("โรงอาหารดอนตะวัน",                         14.890347, 102.017391,  0.0),
-    ("สุรนิเวศ1",                                 14.89502504, 102.0155654, 0.4),
+    ("สุรนิเวศ1",                                 14.89502504, 102.0156524, 0.4),
     ("อาคารอเนกประสงค์ 1,2 จุดที่ 1",            14.89556,  102.01628,   0.3),
     ("อาคารอเนกประสงค์ 1,2 จุดที่ 2",            14.89541,  102.01655,   0.3),
     ("สุรนิเวศ2",                                 14.89628592, 102.015116, 0.4),
@@ -314,14 +314,10 @@ def get_distance_matrix_osrm(locations):
 # 5. อัลกอริทึม
 # =====================================================================
 def run_sequential_algorithm(locations, demands, nodes, max_capacity):
-    """
-    Sequential Route — เก็บขยะตามลำดับในข้อมูลดั้งเดิม
-    เมื่อ load + demand > max_capacity → วิ่งกลับ Depot แล้วเริ่ม Route ใหม่
-    """
     routes, route_vols   = [], []
     current_route, current_vol = [], 0.0
 
-    for item in locations[1:]:          # ข้าม Depot (index 0)
+    for item in locations[1:]:
         name   = item[0]
         demand = demands[name]
 
@@ -584,7 +580,7 @@ def create_interactive_map(routes, locations, nodes, routing_mode,
 # 7. Streamlit UI
 # =====================================================================
 st.title("🚛 Smart Waste Collection Routing System (Balanced Edition)")
-st.markdown("ระบบจัดเส้นทางอัจฉริยะ พร้อมฟังก์ชัน **Load Balancing**, ปรับรูปแบบแผนที่ได้ และดาวน์โหลดข้อมูลนำไปวิเคราะห์ต่อ")
+st.markdown("ระบบจัดเส้นทางอัจฉริยะ พร้อมฟังก์ชัน **Load Balancing**, ปรับรูปแบบแผนที่ได้ และดาวน์โหลด O-D Matrix รูปแบบงานวิจัย")
 
 # ---- SIDEBAR ----
 with st.sidebar:
@@ -723,103 +719,198 @@ if st.session_state.get("show_results", False):
             df_dist = get_distance_matrix_osrm(osrm_fmt)
         df_dist.columns = df_dist.index = nodes
 
-        # ==========================================
-       # ==========================================
-        # เพิ่มปุ่มดาวน์โหลด Distance Matrix รูปแบบงานวิจัย (Custom Excel)
-        # ==========================================
+        # ==========================================================
+        # 📌 ส่วนที่แก้ไข: สร้างปุ่มดาวน์โหลด Excel ตามรูปแบบไฟล์ตัวอย่างเป๊ะๆ
+        # ==========================================================
         st.markdown("---")
-        st.subheader("📥 5. ดาวน์โหลดข้อมูล Distance Matrix (รูปแบบรายงาน)")
+        st.subheader("📥 5. ดาวน์โหลดข้อมูล Distance Matrix (รูปแบบรายงานวิจัย)")
         st.markdown(
-            "ตารางเมทริกซ์ระยะทางที่จัดรูปแบบสีสัน (Color Coding) สำหรับจุด Depot และแนวทแยง (Diagonal) "
-            "พร้อมความละเอียดทศนิยม 4 ตำแหน่ง เหมาะสำหรับการแนบในภาคผนวกงานวิจัย"
+            "คุณสามารถดาวน์โหลดตารางเมทริกซ์ระยะทางขับขี่จริง (OSRM) ที่ผ่านการจัดรูปแบบตามตัวอย่างรายงานของคุณ: "
+            "แถวบนสุดสรุปข้อมูล, แถวหัวข้อสีน้ำเงิน, **ไฮไลต์แถว Depot ด้วยสีแดง**, **แนวทแยงเป็นสีเทา** และสลับสีขาว-ฟ้าอ่อน"
         )
         
         st.dataframe(df_dist.head(), use_container_width=True)
 
         buffer = io.BytesIO()
-        
-        # สร้าง Workbook ด้วย xlsxwriter โดยตรงเพื่อให้ควบคุมระดับเซลล์ได้
         import xlsxwriter
         workbook = xlsxwriter.Workbook(buffer, {'in_memory': True})
         worksheet = workbook.add_worksheet('Distance_Matrix')
 
-        # 1. กำหนดรูปแบบ Styles ต่างๆ
+        # กำหนดชุดรูปแบบสไตล์ (Styles)
         format_title = workbook.add_format({
-            'bg_color': '#205E9C', 'font_color': 'white', 'bold': True,
-            'valign': 'vcenter', 'border': 1
+            'bg_color': '#1F4E78', 'font_color': 'white', 'bold': True,
+            'valign': 'vcenter', 'border': 1, 'font_name': 'Segoe UI', 'font_size': 11
         })
         format_header = workbook.add_format({
-            'bg_color': '#205E9C', 'font_color': 'white', 'bold': True,
-            'align': 'center', 'valign': 'vcenter', 'text_wrap': True, 'border': 1
+            'bg_color': '#1F4E78', 'font_color': 'white', 'bold': True,
+            'align': 'center', 'valign': 'vcenter', 'text_wrap': True, 'border': 1,
+            'font_name': 'Segoe UI', 'font_size': 10
         })
-        format_depot_row = workbook.add_format({
+        format_depot_cell = workbook.add_format({
             'bg_color': '#FF0000', 'font_color': 'white', 'bold': True, 
-            'border': 1, 'num_format': '0.0000'
+            'border': 1, 'num_format': '0.0000', 'font_name': 'Segoe UI', 'font_size': 10
+        })
+        format_depot_cell_center = workbook.add_format({
+            'bg_color': '#FF0000', 'font_color': 'white', 'bold': True, 
+            'align': 'center', 'border': 1, 'font_name': 'Segoe UI', 'font_size': 10
         })
         format_diagonal = workbook.add_format({
-            'bg_color': '#D9D9D9', 'border': 1, 'num_format': '0.0000'
+            'bg_color': '#D9D9D9', 'font_color': 'black', 'border': 1, 
+            'num_format': '0.0000', 'font_name': 'Segoe UI', 'font_size': 10
         })
         format_data_white = workbook.add_format({
-            'border': 1, 'num_format': '0.0000'
+            'bg_color': '#FFFFFF', 'font_color': 'black', 'border': 1, 
+            'num_format': '0.0000', 'font_name': 'Segoe UI', 'font_size': 10
+        })
+        format_data_white_center = workbook.add_format({
+            'bg_color': '#FFFFFF', 'font_color': 'black', 'align': 'center', 
+            'border': 1, 'font_name': 'Segoe UI', 'font_size': 10
         })
         format_data_blue = workbook.add_format({
-            'bg_color': '#E9EFF7', 'border': 1, 'num_format': '0.0000'
+            'bg_color': '#E9EFF7', 'font_color': 'black', 'border': 1, 
+            'num_format': '0.0000', 'font_name': 'Segoe UI', 'font_size': 10
+        })
+        format_data_blue_center = workbook.add_format({
+            'bg_color': '#E9EFF7', 'font_color': 'black', 'align': 'center', 
+            'border': 1, 'font_name': 'Segoe UI', 'font_size': 10
         })
 
-        # 2. จัดเตรียมข้อมูลสำหรับเขียน
         nodes_list = df_dist.columns.tolist()
         num_nodes = len(nodes_list)
         
-        # แถวที่ 1: ส่วนหัวระบุจำนวนจุดและ Depot
-        title_text = f"จำนวนจุด: {num_nodes} | Depot: {nodes[0]}"
-        worksheet.merge_range(0, 0, 0, num_nodes + 1, title_text, format_title)
+        # เขียนแถวที่ 2 (Excel row Index 1): Title Bar สรุปจำนวนจุด
+        title_text = f"จำนวนจุด: {num_nodes} | Depot: {depot_name}"
+        worksheet.merge_range(1, 0, 1, num_nodes + 1, title_text, format_title)
+        worksheet.set_row(1, 24)
         
-        # แถวที่ 2: Header คอลัมน์ (From \ To, Index, และชื่อจุดต่างๆ)
-        worksheet.set_row(1, 40) # ปรับความสูงแถว Header
-        worksheet.write(1, 0, "From \\ To", format_header)
-        worksheet.write(1, 1, "Index", format_header)
+        # เขียนแถวที่ 3 (Excel row Index 2): หัวตารางเมทริกซ์
+        worksheet.set_row(2, 40)
+        worksheet.write(2, 0, "From \\ To", format_header)
+        worksheet.write(2, 1, "Index", format_header)
         for c_idx, node_name in enumerate(nodes_list):
-            worksheet.write(1, c_idx + 2, node_name, format_header)
+            worksheet.write(2, c_idx + 2, node_name, format_header)
 
-        # 3. เขียนข้อมูลลงทีละเซลล์เพื่อควบคุมสี
+        # เขียนข้อมูลตั้งแต่แถวที่ 4 เป็นต้นไป (Excel row Index 3 onwards)
         for r_idx in range(num_nodes):
-            row_excel = r_idx + 2 # ข้อมูลเริ่มที่แถวที่ 3 (Index 2 ของ Excel)
+            row_excel = r_idx + 3
             node_name = nodes_list[r_idx]
+            is_depot_row = (r_idx == 0)
             
-            # เลือกสีพื้นหลังสลับแถว (Zebra Striping)
-            is_depot = (r_idx == 0)
-            base_format = format_depot_row if is_depot else (format_data_blue if r_idx % 2 != 0 else format_data_white)
-
-            # เขียนคอลัมน์ A (ชื่อจุด) และ B (Index)
-            worksheet.write(row_excel, 0, node_name, base_format)
-            worksheet.write(row_excel, 1, r_idx, base_format)
-
-            # เขียนข้อมูลระยะทาง
-            for c_idx in range(num_nodes):
-                val = df_dist.iloc[r_idx, c_idx]
-                col_excel = c_idx + 2
+            # ตรวจสอบและลงสีคอลัมน์ Label (A) และ Index (B)
+            if is_depot_row:
+                fmt_label, fmt_idx = format_depot_cell, format_depot_cell_center
+            elif r_idx % 2 == 1:
+                fmt_label, fmt_idx = format_data_blue, format_data_blue_center
+            else:
+                fmt_label, fmt_idx = format_data_white, format_data_white_center
                 
-                # ตรวจสอบว่าเป็นแนวทแยง (Diagonal) หรือไม่
-                if r_idx == c_idx and not is_depot:
-                    cell_format = format_diagonal
+            worksheet.write(row_excel, 0, node_name, fmt_label)
+            worksheet.write(row_excel, 1, r_idx, fmt_idx)
+
+            # เขียนค่าระยะทางพร้อมเงื่อนไขการทับซ้อนของสี (Priority Mapping)
+            for c_idx in range(num_nodes):
+                col_excel = c_idx + 2
+                val = df_dist.iloc[r_idx, c_idx]
+                
+                if r_idx == c_idx:
+                    cell_format = format_diagonal       # เงื่อนไขที่ 1: แนวทแยงต้องเป็นสีเทาเสมอ
+                elif is_depot_row:
+                    cell_format = format_depot_cell     # เงื่อนไขที่ 2: แถว Depot ต้องเป็นสีแดง
+                elif r_idx % 2 == 1:
+                    cell_format = format_data_blue       # เงื่อนไขที่ 3: แถวคี่เป็นสีฟ้าอ่อน
                 else:
-                    cell_format = base_format
+                    cell_format = format_data_white      # เงื่อนไขที่ 4: แถวคู่เป็นสีขาว
                     
                 worksheet.write_number(row_excel, col_excel, val, cell_format)
-
-        # 4. ปรับความกว้างของคอลัมน์ให้สวยงาม
-        worksheet.set_column(0, 0, 35) # คอลัมน์ A (ชื่อจุด) กว้าง 35
-        worksheet.set_column(1, 1, 8)  # คอลัมน์ B (Index) กว้าง 8
-        worksheet.set_column(2, num_nodes + 1, 14) # คอลัมน์ C เป็นต้นไป กว้าง 14
-
-        # ปิดการเขียนไฟล์
+                
+        # ขยายขอบเขตความกว้างของคอลัมน์ให้มองเห็นชื่อชัดเจนโดยไม่ต้องเลื่อนปรับเอง
+        worksheet.set_column(0, 0, 45) 
+        worksheet.set_column(1, 1, 10) 
+        worksheet.set_column(2, num_nodes + 1, 18) 
         workbook.close()
         
         st.download_button(
-            label="📊 ดาวน์โหลด Distance Matrix (จัดรูปแบบ Excel สำเร็จรูป)",
+            label="📊 ดาวน์โหลด Distance Matrix (จัดรูปแบบตามตัวอย่างสำเร็จรูป)",
             data=buffer.getvalue(),
             file_name="Formatted_OSRM_Distance_Matrix.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
-        # ==========================================
+        # ==========================================================
+
+        if algorithm_choice == "Clarke-Wright Savings (มาตรฐาน)":
+            routes, route_vols = run_savings_algorithm(
+                df_dist, demands, nodes, max_capacity)
+        elif algorithm_choice == "Balanced Clarke-Wright Savings (แนะนำ)":
+            routes, route_vols = run_balanced_savings_algorithm(
+                df_dist, demands, nodes, max_capacity, max_vehicles)
+        elif algorithm_choice == "Balanced Workload Sweep":
+            routes, route_vols = run_balanced_sweep_algorithm(
+                osrm_fmt, demands, nodes, max_capacity, df_dist)
+        elif algorithm_choice == "Sequential Route (เส้นทางเดิมตามลำดับ)":
+            routes, route_vols = run_sequential_algorithm(
+                osrm_fmt, demands, nodes, max_capacity)
+        else:
+            routes, route_vols = run_sweep_algorithm(
+                osrm_fmt, demands, nodes, max_capacity, df_dist)
+
+        route_distances = []
+        for r in routes:
+            full = [nodes[0]] + r + [nodes[0]]
+            route_distances.append(
+                sum(df_dist.loc[full[k], full[k+1]] for k in range(len(full)-1)))
+
+        grand_total = sum(route_distances)
+        activity_A  = grand_total / fuel_economy
+        carbon_E    = activity_A * ef_value * gwp_value
+
+        # Fleet Balancing
+        trip_data = [{"original_idx": i+1, "route": routes[i],
+                      "vol": route_vols[i], "dist": route_distances[i]}
+                     for i in range(len(routes))]
+        trip_data.sort(key=lambda x: x["dist"], reverse=True)
+        fleet_schedule    = {f"🚛 รถขยะคันที่ {i+1}": [] for i in range(int(max_vehicles))}
+        vehicle_workloads = {f"🚛 รถขยะคันที่ {i+1}": 0.0 for i in range(int(max_vehicles))}
+        for t in trip_data:
+            best = min(vehicle_workloads, key=vehicle_workloads.get)
+            t["trip_sequence"] = len(fleet_schedule[best]) + 1
+            fleet_schedule[best].append(t)
+            vehicle_workloads[best] += t["dist"]
+
+        # Dashboard
+        st.subheader("📊 สรุปผลการปฏิบัติงาน")
+        st.success("✅ วิเคราะห์และออกแบบเส้นทางเสร็จสมบูรณ์!")
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("📌 จุดเก็บขยะ",     f"{total_customers} จุด")
+        c2.metric("🚛 รอบที่ต้องวิ่ง",  f"{len(routes)} เที่ยว")
+        c3.metric("🗑️ ปริมาตรรวม",     f"{sum(route_vols):.2f} ลบ.ม.")
+
+        c4, c5 = st.columns(2)
+        c4.metric("📍 ระยะทางรวม",      f"{grand_total:.2f} กม.")
+        c5.metric("🌿 คาร์บอน (CO₂e)",  f"{carbon_E:.2f} kg")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("🗺️ แฝนที่จำลองการเดินรถ")
+        with st.spinner("กำลังเรนเดอร์แผนที่..."):
+            m = create_interactive_map(
+                routes, osrm_fmt, nodes, routing_mode, G_osm, map_type, line_style)
+            st_folium(m, width=1200, height=600, returned_objects=[])
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("📋 ตารางปฏิบัติงานของรถแต่ละคัน")
+        for vehicle_name, trips in fleet_schedule.items():
+            total_d = sum(t["dist"] for t in trips)
+            total_v = sum(t["vol"]  for t in trips)
+            with st.expander(
+                f"{vehicle_name} — {len(trips)} เที่ยว | "
+                f"{total_d:.2f} กม. | {total_v:.2f} ลบ.ม.",
+                expanded=True
+            ):
+                if not trips:
+                    st.write("✅ รถคันนี้ไม่ได้ออกปฏิบัติงาน (Standby)")
+                for t in trips:
+                    st.info(
+                        f"📍 {nodes[0]} ➡️ {' ➡️ '.join(t['route'])} ➡️ {nodes[0]}\n\n"
+                        f"ปริมาตร: {t['vol']:.2f} ลบ.ม. | ระยะทาง: {t['dist']:.2f} กม."
+                    )
