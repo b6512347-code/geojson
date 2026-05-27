@@ -698,70 +698,129 @@ $$CIT = \\frac{{CO_2e_{{total}}}}{{Demand_{{total}}}} \\quad \\text{{(kgCO}}_2\\
 
     col_a, col_b = st.columns(2)
 
+    # ---- pre-compute shared values ----
+    eg_val          = best_m["eg"]
+    carbon_red      = round(((base_m['carbon'] - best_m['carbon']) / base_m['carbon']) * 100, 2)
+    carbon_saved_kg = round(base_m['carbon'] - best_m['carbon'], 4)
+    dist_saved_km   = round(base_m['total_dist'] - best_m['total_dist'], 3)
+
+    base_mu    = float(np.mean(base_m['route_vols']))
+    base_sigma = float(np.std(base_m['route_vols']))
+    best_mu    = float(np.mean(best_m['route_vols']))
+    best_sigma = float(np.std(best_m['route_vols']))
+
+    def _step_row(label, formula, result):
+        """สร้าง HTML แถว step หนึ่งแถว"""
+        return f"""
+        <div style="margin-bottom:10px;">
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px;">{label}</div>
+          <div style="background:rgba(0,0,0,0.06);border-radius:6px;padding:8px 12px;
+                      font-family:monospace;font-size:13px;line-height:1.7;">
+            {formula}<br>
+            <span style="font-weight:700;font-size:14px;">= {result}</span>
+          </div>
+        </div>"""
+
+    # ── กล่องซ้าย: Baseline ──────────────────────────────────────────
     with col_a:
-        st.markdown(f"""
-<div style="background:#fff3cd;border-radius:10px;padding:16px;border-left:5px solid #f0ad4e">
-<h4>🔴 Sequential Route (Baseline)</h4>
+        html_base = f"""
+<div style="background:#fff8e1;border-radius:12px;padding:20px 22px;
+            border-left:6px solid #f59e0b;color:#1a1a1a;">
+  <h4 style="margin:0 0 16px;color:#92400e;font-size:17px;">
+    🔴 Sequential Route <span style="font-weight:400;font-size:14px;">(Baseline)</span>
+  </h4>
 
-**Step 1 — ระยะทางรวม**
-> D_total = **{base_m['total_dist']:.3f} กม.**
-> จำนวนเที่ยว: {base_m['n_trips']}
+  {_step_row(
+      "Step 1 — ระยะทางรวม",
+      f"D_total",
+      f"<span style='color:#b45309'>{base_m['total_dist']:.3f} กม.</span> &nbsp;({base_m['n_trips']} เที่ยว)"
+  )}
 
-**Step 2 — คำนวณปริมาณเชื้อเพลิง**
-> Activity = {base_m['total_dist']:.3f} ÷ {fuel_economy} = **{base_m['total_dist']/fuel_economy:.3f} ลิตร**
+  {_step_row(
+      "Step 2 — ปริมาณเชื้อเพลิง",
+      f"{base_m['total_dist']:.3f} ÷ {fuel_economy}",
+      f"<span style='color:#b45309'>{base_m['total_dist']/fuel_economy:.3f} ลิตร</span>"
+  )}
 
-**Step 3 — คำนวณ CO₂e**
-> CO₂e = {base_m['total_dist']/fuel_economy:.3f} × {ef_value} × {gwp_value}
-> = **{base_m['carbon']:.4f} kg**
+  {_step_row(
+      "Step 3 — CO₂e",
+      f"{base_m['total_dist']/fuel_economy:.3f} × {ef_value} × {gwp_value}",
+      f"<span style='color:#b45309'>{base_m['carbon']:.4f} kg CO₂e</span>"
+  )}
 
-**Step 4 — LBI**
-> μ = {float(np.mean(base_m['route_vols'])):.3f}, σ = {float(np.std(base_m['route_vols'])):.3f}
-> LBI = 1 − ({float(np.std(base_m['route_vols'])):.3f} ÷ {float(np.mean(base_m['route_vols'])):.3f}) = **{base_m['lbi']:.4f}**
+  {_step_row(
+      "Step 4 — LBI",
+      f"μ={base_mu:.3f}, σ={base_sigma:.3f} → 1 − ({base_sigma:.3f} ÷ {base_mu:.3f})",
+      f"<span style='color:#b45309'>{base_m['lbi']:.4f}</span>"
+  )}
 
-**Step 5 — VUR**
-> VUR = {base_m['total_demand']:.2f} ÷ ({max_capacity} × {base_m['n_trips']}) × 100
-> = **{base_m['vur']:.2f}%**
+  {_step_row(
+      "Step 5 — VUR",
+      f"{base_m['total_demand']:.2f} ÷ ({max_capacity} × {base_m['n_trips']}) × 100",
+      f"<span style='color:#b45309'>{base_m['vur']:.2f}%</span>"
+  )}
 
-**Step 6 — CIT**
-> CIT = {base_m['carbon']:.4f} ÷ {base_m['total_demand']:.2f}
-> = **{base_m['cit']:.4f} kgCO₂e/ลบ.ม.**
-</div>
-""", unsafe_allow_html=True)
+  {_step_row(
+      "Step 6 — CIT",
+      f"{base_m['carbon']:.4f} ÷ {base_m['total_demand']:.2f}",
+      f"<span style='color:#b45309'>{base_m['cit']:.4f} kgCO₂e/ลบ.ม.</span>"
+  )}
+</div>"""
+        st.markdown(html_base, unsafe_allow_html=True)
 
+    # ── กล่องขวา: Best Algorithm ─────────────────────────────────────
     with col_b:
-        eg_val     = best_m["eg"]
-        carbon_red = round(((base_m['carbon'] - best_m['carbon']) / base_m['carbon']) * 100, 2)
-        carbon_saved_kg  = round(base_m['carbon'] - best_m['carbon'], 4)
-        dist_saved_km    = round(base_m['total_dist'] - best_m['total_dist'], 3)
+        html_best = f"""
+<div style="background:#f0fdf4;border-radius:12px;padding:20px 22px;
+            border-left:6px solid #16a34a;color:#1a1a1a;">
+  <h4 style="margin:0 0 16px;color:#14532d;font-size:17px;">
+    🏆 {best_label}
+  </h4>
 
-        st.markdown(f"""
-<div style="background:#d4edda;border-radius:10px;padding:16px;border-left:5px solid #28a745">
-<h4>🏆 {best_label}</h4>
+  {_step_row(
+      "Step 1 — ระยะทางรวม",
+      f"D_total",
+      f"<span style='color:#15803d'>{best_m['total_dist']:.3f} กม.</span> &nbsp;({best_m['n_trips']} เที่ยว)"
+  )}
 
-**Step 1 — ระยะทางรวม**
-> D_total = **{best_m['total_dist']:.3f} กม.**
-> จำนวนเที่ยว: {best_m['n_trips']}
+  {_step_row(
+      "Step 2 — ปริมาณเชื้อเพลิง",
+      f"{best_m['total_dist']:.3f} ÷ {fuel_economy}",
+      f"<span style='color:#15803d'>{best_m['total_dist']/fuel_economy:.3f} ลิตร</span>"
+  )}
 
-**Step 2 — คำนวณปริมาณเชื้อเพลิง**
-> Activity = {best_m['total_dist']:.3f} ÷ {fuel_economy} = **{best_m['total_dist']/fuel_economy:.3f} ลิตร**
+  {_step_row(
+      "Step 3 — CO₂e",
+      f"{best_m['total_dist']/fuel_economy:.3f} × {ef_value} × {gwp_value}",
+      f"<span style='color:#15803d'>{best_m['carbon']:.4f} kg CO₂e</span>"
+  )}
 
-**Step 3 — คำนวณ CO₂e**
-> CO₂e = {best_m['total_dist']/fuel_economy:.3f} × {ef_value} × {gwp_value}
-> = **{best_m['carbon']:.4f} kg**
+  {_step_row(
+      "Step 4 — LBI",
+      f"μ={best_mu:.3f}, σ={best_sigma:.3f} → 1 − ({best_sigma:.3f} ÷ {best_mu:.3f})",
+      f"<span style='color:#15803d'>{best_m['lbi']:.4f}</span>"
+  )}
 
-**Step 4 — LBI**
-> μ = {float(np.mean(best_m['route_vols'])):.3f}, σ = {float(np.std(best_m['route_vols'])):.3f}
-> LBI = 1 − ({float(np.std(best_m['route_vols'])):.3f} ÷ {float(np.mean(best_m['route_vols'])):.3f}) = **{best_m['lbi']:.4f}**
+  {_step_row(
+      "Step 5 — VUR",
+      f"{best_m['total_demand']:.2f} ÷ ({max_capacity} × {best_m['n_trips']}) × 100",
+      f"<span style='color:#15803d'>{best_m['vur']:.2f}%</span>"
+  )}
 
-**Step 5 — VUR**
-> VUR = {best_m['total_demand']:.2f} ÷ ({max_capacity} × {best_m['n_trips']}) × 100
-> = **{best_m['vur']:.2f}%**
+  {_step_row(
+      "Step 6 — CIT",
+      f"{best_m['carbon']:.4f} ÷ {best_m['total_demand']:.2f}",
+      f"<span style='color:#15803d'>{best_m['cit']:.4f} kgCO₂e/ลบ.ม.</span>"
+  )}
 
-**Step 6 — CIT**
-> CIT = {best_m['carbon']:.4f} ÷ {best_m['total_demand']:.2f}
-> = **{best_m['cit']:.4f} kgCO₂e/ลบ.ม.**
-</div>
-""", unsafe_allow_html=True)
+  <div style="margin-top:14px;padding:10px 14px;border-radius:8px;
+              background:#dcfce7;border:1px solid #86efac;font-size:13px;color:#14532d;">
+    📉 ลดระยะทาง <strong>{eg_val:.1f}%</strong> &nbsp;|&nbsp;
+    🌿 ลดคาร์บอน <strong>{carbon_red:.1f}%</strong>
+    ({carbon_saved_kg:.3f} kg CO₂e)
+  </div>
+</div>"""
+        st.markdown(html_best, unsafe_allow_html=True)
 
     # ---- สรุปผลประหยัด ----
     st.markdown("---")
