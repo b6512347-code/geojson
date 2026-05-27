@@ -724,34 +724,101 @@ if st.session_state.get("show_results", False):
         df_dist.columns = df_dist.index = nodes
 
         # ==========================================
-        # เพิ่มปุ่มดาวน์โหลด Distance Matrix เป็น Excel
+       # ==========================================
+        # เพิ่มปุ่มดาวน์โหลด Distance Matrix รูปแบบงานวิจัย (Custom Excel)
         # ==========================================
         st.markdown("---")
-        st.subheader("📥 ดาวน์โหลดข้อมูล Distance Matrix")
+        st.subheader("📥 5. ดาวน์โหลดข้อมูล Distance Matrix (รูปแบบรายงาน)")
         st.markdown(
-            "ตารางเมทริกซ์ระยะทาง (Distance Matrix) ด้านล่างนี้ ดึงข้อมูลระยะทางจริงในการขับขี่จาก **OSRM API** "
-            "(หรือจากโครงข่าย Local Map ตามที่คุณเลือก) "
-            "สามารถดาวน์โหลดไปใช้คำนวณขั้นสูงหรือพัฒนาร่วมกับ AI Models เพิ่มเติมได้"
+            "ตารางเมทริกซ์ระยะทางที่จัดรูปแบบสีสัน (Color Coding) สำหรับจุด Depot และแนวทแยง (Diagonal) "
+            "พร้อมความละเอียดทศนิยม 4 ตำแหน่ง เหมาะสำหรับการแนบในภาคผนวกงานวิจัย"
         )
-        
-        # 1. ตั้งชื่อให้กับ Index เพื่อให้มีหัวคอลัมน์ใน Excel 
-        df_dist.index.name = "จุดเริ่มต้น / จุดหมายปลายทาง"
         
         st.dataframe(df_dist.head(), use_container_width=True)
 
         buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            # 2. ยืนยันการเขียน Index ลงไปในไฟล์ (index=True)
-            df_dist.to_excel(writer, sheet_name='Distance_Matrix', index=True)
+        
+        # สร้าง Workbook ด้วย xlsxwriter โดยตรงเพื่อให้ควบคุมระดับเซลล์ได้
+        import xlsxwriter
+        workbook = xlsxwriter.Workbook(buffer, {'in_memory': True})
+        worksheet = workbook.add_worksheet('Distance_Matrix')
+
+        # 1. กำหนดรูปแบบ Styles ต่างๆ
+        format_title = workbook.add_format({
+            'bg_color': '#205E9C', 'font_color': 'white', 'bold': True,
+            'valign': 'vcenter', 'border': 1
+        })
+        format_header = workbook.add_format({
+            'bg_color': '#205E9C', 'font_color': 'white', 'bold': True,
+            'align': 'center', 'valign': 'vcenter', 'text_wrap': True, 'border': 1
+        })
+        format_depot_row = workbook.add_format({
+            'bg_color': '#FF0000', 'font_color': 'white', 'bold': True, 
+            'border': 1, 'num_format': '0.0000'
+        })
+        format_diagonal = workbook.add_format({
+            'bg_color': '#D9D9D9', 'border': 1, 'num_format': '0.0000'
+        })
+        format_data_white = workbook.add_format({
+            'border': 1, 'num_format': '0.0000'
+        })
+        format_data_blue = workbook.add_format({
+            'bg_color': '#E9EFF7', 'border': 1, 'num_format': '0.0000'
+        })
+
+        # 2. จัดเตรียมข้อมูลสำหรับเขียน
+        nodes_list = df_dist.columns.tolist()
+        num_nodes = len(nodes_list)
+        
+        # แถวที่ 1: ส่วนหัวระบุจำนวนจุดและ Depot
+        title_text = f"จำนวนจุด: {num_nodes} | Depot: {nodes[0]}"
+        worksheet.merge_range(0, 0, 0, num_nodes + 1, title_text, format_title)
+        
+        # แถวที่ 2: Header คอลัมน์ (From \ To, Index, และชื่อจุดต่างๆ)
+        worksheet.set_row(1, 40) # ปรับความสูงแถว Header
+        worksheet.write(1, 0, "From \\ To", format_header)
+        worksheet.write(1, 1, "Index", format_header)
+        for c_idx, node_name in enumerate(nodes_list):
+            worksheet.write(1, c_idx + 2, node_name, format_header)
+
+        # 3. เขียนข้อมูลลงทีละเซลล์เพื่อควบคุมสี
+        for r_idx in range(num_nodes):
+            row_excel = r_idx + 2 # ข้อมูลเริ่มที่แถวที่ 3 (Index 2 ของ Excel)
+            node_name = nodes_list[r_idx]
             
-            # (ทางเลือกเพิ่มเติม) ปรับความกว้างของคอลัมน์แรกเพื่อให้เห็นชื่อจุดชัดเจน
-            worksheet = writer.sheets['Distance_Matrix']
-            worksheet.set_column('A:A', 35) 
+            # เลือกสีพื้นหลังสลับแถว (Zebra Striping)
+            is_depot = (r_idx == 0)
+            base_format = format_depot_row if is_depot else (format_data_blue if r_idx % 2 != 0 else format_data_white)
+
+            # เขียนคอลัมน์ A (ชื่อจุด) และ B (Index)
+            worksheet.write(row_excel, 0, node_name, base_format)
+            worksheet.write(row_excel, 1, r_idx, base_format)
+
+            # เขียนข้อมูลระยะทาง
+            for c_idx in range(num_nodes):
+                val = df_dist.iloc[r_idx, c_idx]
+                col_excel = c_idx + 2
+                
+                # ตรวจสอบว่าเป็นแนวทแยง (Diagonal) หรือไม่
+                if r_idx == c_idx and not is_depot:
+                    cell_format = format_diagonal
+                else:
+                    cell_format = base_format
+                    
+                worksheet.write_number(row_excel, col_excel, val, cell_format)
+
+        # 4. ปรับความกว้างของคอลัมน์ให้สวยงาม
+        worksheet.set_column(0, 0, 35) # คอลัมน์ A (ชื่อจุด) กว้าง 35
+        worksheet.set_column(1, 1, 8)  # คอลัมน์ B (Index) กว้าง 8
+        worksheet.set_column(2, num_nodes + 1, 14) # คอลัมน์ C เป็นต้นไป กว้าง 14
+
+        # ปิดการเขียนไฟล์
+        workbook.close()
         
         st.download_button(
-            label="📊 ดาวน์โหลด Distance Matrix (Excel)",
+            label="📊 ดาวน์โหลด Distance Matrix (จัดรูปแบบ Excel สำเร็จรูป)",
             data=buffer.getvalue(),
-            file_name="OSRM_Distance_Matrix.xlsx",
+            file_name="Formatted_OSRM_Distance_Matrix.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
