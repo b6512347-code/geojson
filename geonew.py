@@ -711,7 +711,7 @@ if st.session_state.get("show_results", False):
     demands     = {row[0]: row[3] for row in data_to_use}
     osrm_fmt    = [(row[0], row[1], row[2], row[3]) for row in data_to_use]
 
-    with st.spinner(f"📡 กำลังประมวลผลด้วย {algorithm_choice}..."):
+    with st.spinner(f"📡 กำลังประมวลผลโครงข่ายด้วย {algorithm_choice}..."):
 
         if routing_mode == "Local Map (ออฟไลน์ผ่านไฟล์ .osm)":
             df_dist = get_distance_matrix_osm(G_osm, osrm_fmt)
@@ -719,15 +719,14 @@ if st.session_state.get("show_results", False):
             df_dist = get_distance_matrix_osrm(osrm_fmt)
         df_dist.columns = df_dist.index = nodes
 
-        # ==========================================================
-        # 📥 ส่วนสร้างปุ่มดาวน์โหลดไฟล์ Excel (Custom Row-by-Row Writing via XlsxWriter)
-        # ==========================================================
+        # =====================================================================
+        # 📌 ส่วนดาวน์โหลด Excel รูปแบบรายงานวิจัยระดับสากล (ปรับปรุงตามภาพตัวอย่าง)
+        # =====================================================================
         st.markdown("---")
-        st.subheader("📥 5. ดาวน์โหลดข้อมูล Distance Matrix (รูปแบบรายงานวิจัย)")
+        st.subheader("📥 ดาวน์โหลดข้อมูล Distance Matrix (รูปแบบรายงานวิจัย)")
         st.markdown(
-            "ตารางเมทริกซ์ระยะทางขับขี่จริง (OSRM) ได้รับการเขียนทับทีละเซลล์ตามรูปแบบรายงานวิจัยของคุณแล้ว: "
-            "แถวบนสุดสีน้ำเงินระบุชื่อ Depot, แถวหัวข้อสีน้ำเงินเข้มตัวหนา, **คอลัมน์ A แสดงชื่อจุดจริง**, "
-            "**ไฮไลต์แถว Depot (แถวแรก) ด้วยสีแดง**, **แนวทแยง (Diagonal) เป็นสีเทา** และสลับสีแถวขาว-ฟ้าอ่อน"
+            "คุณสามารถดาวน์โหลดตารางเมทริกซ์ระยะทางขับขี่จริงจากการคำนวณผ่าน **Routing Engine (OSRM)** "
+            "ซึ่งจัดระเบียบโครงสร้างแถวและคอลัมน์ คอลัมน์ A แสดงชื่อจุด และลงสีตามเงื่อนไขรายงานวิจัยสำเร็จรูป"
         )
         
         st.dataframe(df_dist.head(), use_container_width=True)
@@ -737,10 +736,14 @@ if st.session_state.get("show_results", False):
         workbook = xlsxwriter.Workbook(buffer, {'in_memory': True})
         worksheet = workbook.add_worksheet('Distance_Matrix')
 
-        # นิยาม Styles รูปแบบตารางวิจัย (Custom Layout)
-        format_title = workbook.add_format({
+        # กำหนดชุดรูปแบบสไตล์การตกแต่งเซลล์ (Styles Stylesheet)
+        format_title_main = workbook.add_format({
             'bg_color': '#1F4E78', 'font_color': 'white', 'bold': True,
             'valign': 'vcenter', 'border': 1, 'font_name': 'Segoe UI', 'font_size': 11
+        })
+        format_title_sub = workbook.add_format({
+            'bg_color': '#1F4E78', 'font_color': 'white', 'bold': False,
+            'valign': 'vcenter', 'border': 1, 'font_name': 'Segoe UI', 'font_size': 10
         })
         format_header = workbook.add_format({
             'bg_color': '#1F4E78', 'font_color': 'white', 'bold': True,
@@ -779,25 +782,29 @@ if st.session_state.get("show_results", False):
         nodes_list = df_dist.columns.tolist()
         num_nodes = len(nodes_list)
         
-        # เขียนแถวสรุปด้านบน (Excel แถวที่ 2)
-        title_text = f"จำนวนจุด: {num_nodes} | Depot: {depot_name}"
-        worksheet.merge_range(1, 0, 1, num_nodes + 1, title_text, format_title)
-        worksheet.set_row(1, 24)
+        # เขียนแถวที่ 1 (Excel Row 1): หัวข้อหลักระบุตัว Algorithm ตามสไตล์ภาพถ่ายของผู้ใช้
+        worksheet.merge_range(0, 0, 0, num_nodes + 1, f"Distance Matrix จาก {algorithm_choice}", format_title_main)
+        worksheet.set_row(0, 24)
         
-        # เขียนแถวหัวตาราง (Excel แถวที่ 3)
+        # เขียนแถวที่ 2 (Excel Row 2): ข้อมูลสรุปเชิงสถิติ (จำนวนจุด พิกัด Depot และ Presets รถที่เลือกคำนวณ)
+        title_text = f"จำนวนจุด: {num_nodes} | Depot: {depot_name} | ชุดข้อมูล: {vehicle_preset}"
+        worksheet.merge_range(1, 0, 1, num_nodes + 1, title_text, format_title_sub)
+        worksheet.set_row(1, 22)
+        
+        # เขียนแถวที่ 3 (Excel Row 3): โครงสร้าง Header (From \ To, Index, และชื่อสถานที่ปลายทางทั้งหมด)
         worksheet.set_row(2, 40)
         worksheet.write(2, 0, "From \\ To", format_header)
         worksheet.write(2, 1, "Index", format_header)
         for c_idx, node_name in enumerate(nodes_list):
             worksheet.write(2, c_idx + 2, node_name, format_header)
 
-        # เขียนข้อมูลแบบเจาะจงระดับเซลล์ (Excel แถวที่ 4 เป็นต้นไป)
+        # เขียนแถวข้อมูลจริงทีละจุด (เริ่มแถวที่ 4 เที่ยงตรงในแผ่นงาน Excel)
         for r_idx in range(num_nodes):
             row_excel = r_idx + 3
             node_name = nodes_list[r_idx]
             is_depot_row = (r_idx == 0)
             
-            # กำหนดรูปแบบสีสำหรับแกนซ้าย (คอลัมน์ A และ B)
+            # 1. จับคู่นิยามสีแกนซ้ายให้กับคอลัมน์ From (A) และ Index (B)
             if is_depot_row:
                 fmt_label, fmt_idx = format_depot_cell, format_depot_cell_center
             elif r_idx % 2 == 1:
@@ -808,37 +815,41 @@ if st.session_state.get("show_results", False):
             worksheet.write(row_excel, 0, node_name, fmt_label)
             worksheet.write(row_excel, 1, r_idx, fmt_idx)
 
-            # เขียนค่าระยะทาง OSRM ลงไปทีละเซลล์ พร้อมสไตล์ตามเงื่อนไขความสำคัญ
+            # 2. ทำลูปคำนวณเขียนพิกัดระยะทาง OSRM ลงไปทีละช่องสี่เหลี่ยมแบบ Matrix
             for c_idx in range(num_nodes):
                 col_excel = c_idx + 2
                 val = df_dist.iloc[r_idx, c_idx]
                 
+                # ลำดับความสำคัญในการลงสีทับเซลล์ (Formatting Priority Rule)
                 if r_idx == c_idx:
-                    cell_format = format_diagonal       # เงื่อนไขหลัก: แนวทแยงต้องสีเทาเสมอ
+                    cell_format = format_diagonal       # แนวทแยงระยะห่างจุดตนเองเป็นศูนย์ ใช้สีเทา
                 elif is_depot_row:
-                    cell_format = format_depot_cell     # แถว Depot ต้องสีแดง
+                    cell_format = format_depot_cell     # ขอบเขตต้นทาง Depot ทั้งแถวเป็นสีแดง
                 elif r_idx % 2 == 1:
-                    cell_format = format_data_blue       # สลับสีฟ้าอ่อน
+                    cell_format = format_data_blue       # สลับสีแถวคี่เป็นสีฟ้าพาสเทล
                 else:
-                    cell_format = format_data_white      # สลับสีขาว
+                    cell_format = format_data_white      # แถวคู่ปกติเป็นสีขาวพื้นหลังเดิม
                     
                 worksheet.write_number(row_excel, col_excel, val, cell_format)
                 
-        # ขยายขอบเขตความกว้างของคอลัมน์ให้มองเห็นชื่อชัดเจน
+            worksheet.set_row(row_excel, 20)
+                
+        # ปรับขยายหน้ากว้างของสดมภ์ (Column Width Optimization) ป้องกันการเกิดข้อผิดพลาด ### ใน Excel
         worksheet.set_column(0, 0, 45) 
         worksheet.set_column(1, 1, 10) 
         worksheet.set_column(2, num_nodes + 1, 18) 
         workbook.close()
         
         st.download_button(
-            label="📊 ดาวน์โหลด Distance Matrix (จัดรูปแบบตามตัวอย่างสำเร็จรูป)",
+            label=f"📊 ดาวน์โหลด Distance Matrix ({vehicle_preset} - {algorithm_choice})",
             data=buffer.getvalue(),
-            file_name="Formatted_OSRM_Distance_Matrix.xlsx",
+            file_name=f"Distance_Matrix_{vehicle_preset}_{algorithm_choice}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
         # ==========================================================
 
+        # ดำเนินการส่งข้อมูลเข้าอัลกอริทึมค้นหาเส้นทางตามตัวเลือก UI
         if algorithm_choice == "Clarke-Wright Savings (มาตรฐาน)":
             routes, route_vols = run_savings_algorithm(
                 df_dist, demands, nodes, max_capacity)
@@ -878,7 +889,7 @@ if st.session_state.get("show_results", False):
             fleet_schedule[best].append(t)
             vehicle_workloads[best] += t["dist"]
 
-        # Dashboard
+        # Dashboard สรุปผล
         st.subheader("📊 สรุปผลการปฏิบัติงาน")
         st.success("✅ วิเคราะห์และออกแบบเส้นทางเสร็จสมบูรณ์!")
 
