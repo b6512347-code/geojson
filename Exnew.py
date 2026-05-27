@@ -1181,7 +1181,9 @@ if st.session_state.get("show_results", False):
 
         # Fleet Balancing
         trip_data = [{"original_idx": i+1, "route": routes[i],
-                      "vol": route_vols[i], "dist": route_distances[i]}
+                      "vol": route_vols[i], "dist": route_distances[i],
+                      "n_pts": len(routes[i]),
+                      "carbon": (route_distances[i] / fuel_economy) * ef_value * gwp_value}
                      for i in range(len(routes))]
         trip_data.sort(key=lambda x: x["dist"], reverse=True)
         fleet_schedule    = {f"🚛 รถขยะคันที่ {i+1}": [] for i in range(int(max_vehicles))}
@@ -1214,21 +1216,81 @@ if st.session_state.get("show_results", False):
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.subheader("📋 4. ตารางปฏิบัติงานของรถแต่ละคัน")
+
+    st.markdown("""
+<style>
+.veh-header-card{background:#1e293b;border-radius:10px;padding:14px 18px;margin-bottom:10px}
+.veh-header-title{font-size:16px;font-weight:700;color:#f1f5f9;margin-bottom:8px}
+.veh-stat-row{display:flex;flex-wrap:wrap;gap:8px}
+.veh-stat{background:#334155;border-radius:7px;padding:6px 12px;font-size:12.5px;color:#e2e8f0;font-weight:600}
+.veh-stat span{color:#94a3b8;font-weight:400;margin-right:4px}
+.veh-stat.hi{background:#14532d;color:#bbf7d0}
+.veh-stat.hi span{color:#86efac}
+.trip-card{border:0.5px solid #dee2e6;border-radius:8px;padding:12px 14px;margin-bottom:8px;background:#f8fafc}
+.trip-num{font-size:12px;font-weight:700;color:#475569;background:#e2e8f0;border-radius:5px;padding:2px 8px;display:inline-block;margin-bottom:8px}
+.trip-metrics{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.tm{font-size:12.5px;padding:4px 10px;border-radius:6px;font-weight:600}
+.tm-pts{background:#dbeafe;color:#1e3a8a}
+.tm-vol{background:#fef9c3;color:#713f12}
+.tm-dist{background:#f0fdf4;color:#14532d}
+.tm-co2{background:#fff1f2;color:#9f1239}
+.trip-route{font-size:12px;color:#475569;line-height:1.8;word-break:break-word;border-top:0.5px solid #e2e8f0;padding-top:7px;margin-top:4px}
+.depot-tag{background:#334155;color:#f1f5f9;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700}
+.arrow{color:#94a3b8;margin:0 3px}
+</style>
+""", unsafe_allow_html=True)
+
     for vehicle_name, trips in fleet_schedule.items():
-        total_d = sum(t["dist"] for t in trips)
-        total_v = sum(t["vol"]  for t in trips)
+        total_d   = sum(t["dist"]   for t in trips)
+        total_v   = sum(t["vol"]    for t in trips)
+        total_pts = sum(t["n_pts"]  for t in trips)
+        total_co2 = sum(t["carbon"] for t in trips)
+
         with st.expander(
-            f"{vehicle_name} — {len(trips)} เที่ยว | "
-            f"{total_d:.2f} กม. | {total_v:.2f} ลบ.ม.",
+            f"{vehicle_name} — {len(trips)} เที่ยว | {total_pts} จุด | "
+            f"{total_d:.2f} กม. | {total_v:.2f} ลบ.ม. | CO₂e {total_co2:.3f} kg",
             expanded=True
         ):
             if not trips:
                 st.write("✅ รถคันนี้ไม่ได้ออกปฏิบัติงาน (Standby)")
+                continue
+
+            # ── header summary card ──────────────────────────────────
+            st.markdown(f"""
+<div class="veh-header-card">
+  <div class="veh-header-title">{vehicle_name}</div>
+  <div class="veh-stat-row">
+    <div class="veh-stat"><span>จำนวนเที่ยว</span>{len(trips)} เที่ยว</div>
+    <div class="veh-stat"><span>จุดเก็บขยะ</span>{total_pts} จุด</div>
+    <div class="veh-stat"><span>ระยะทางรวม</span>{total_d:.2f} กม.</div>
+    <div class="veh-stat"><span>ปริมาตรรวม</span>{total_v:.2f} ลบ.ม.</div>
+    <div class="veh-stat hi"><span>CO₂e รวม</span>{total_co2:.3f} kg</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+            # ── each trip card ───────────────────────────────────────
             for t in trips:
-                st.info(
-                    f"📍 {nodes[0]} ➡️ {' ➡️ '.join(t['route'])} ➡️ {nodes[0]}\n\n"
-                    f"ปริมาตร: {t['vol']:.2f} ลบ.ม. | ระยะทาง: {t['dist']:.2f} กม."
+                route_html = (
+                    f'<span class="depot-tag">{nodes[0]}</span>'
+                    + "".join(
+                        f'<span class="arrow">➡</span>{pt}'
+                        for pt in t["route"]
+                    )
+                    + f'<span class="arrow">➡</span><span class="depot-tag">{nodes[0]}</span>'
                 )
+                st.markdown(f"""
+<div class="trip-card">
+  <div class="trip-num">เที่ยวที่ {t["trip_sequence"]}</div>
+  <div class="trip-metrics">
+    <span class="tm tm-pts">📍 {t["n_pts"]} จุด</span>
+    <span class="tm tm-vol">🗑️ {t["vol"]:.2f} ลบ.ม.</span>
+    <span class="tm tm-dist">🛣️ {t["dist"]:.2f} กม.</span>
+    <span class="tm tm-co2">🌿 CO₂e {t["carbon"]:.4f} kg</span>
+  </div>
+  <div class="trip-route">{route_html}</div>
+</div>
+""", unsafe_allow_html=True)
 
     # =====================================================================
     # 10. Benchmark Section
