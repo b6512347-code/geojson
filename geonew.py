@@ -734,11 +734,19 @@ if st.session_state.get("show_results", False):
             "สามารถดาวน์โหลดไปใช้คำนวณขั้นสูงหรือพัฒนาร่วมกับ AI Models เพิ่มเติมได้"
         )
         
+        # 1. ตั้งชื่อให้กับ Index เพื่อให้มีหัวคอลัมน์ใน Excel 
+        df_dist.index.name = "จุดเริ่มต้น / จุดหมายปลายทาง"
+        
         st.dataframe(df_dist.head(), use_container_width=True)
 
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            df_dist.to_excel(writer, sheet_name='Distance_Matrix')
+            # 2. ยืนยันการเขียน Index ลงไปในไฟล์ (index=True)
+            df_dist.to_excel(writer, sheet_name='Distance_Matrix', index=True)
+            
+            # (ทางเลือกเพิ่มเติม) ปรับความกว้างของคอลัมน์แรกเพื่อให้เห็นชื่อจุดชัดเจน
+            worksheet = writer.sheets['Distance_Matrix']
+            worksheet.set_column('A:A', 35) 
         
         st.download_button(
             label="📊 ดาวน์โหลด Distance Matrix (Excel)",
@@ -748,80 +756,3 @@ if st.session_state.get("show_results", False):
             use_container_width=True
         )
         # ==========================================
-
-        if algorithm_choice == "Clarke-Wright Savings (มาตรฐาน)":
-            routes, route_vols = run_savings_algorithm(
-                df_dist, demands, nodes, max_capacity)
-        elif algorithm_choice == "Balanced Clarke-Wright Savings (แนะนำ)":
-            routes, route_vols = run_balanced_savings_algorithm(
-                df_dist, demands, nodes, max_capacity, max_vehicles)
-        elif algorithm_choice == "Balanced Workload Sweep":
-            routes, route_vols = run_balanced_sweep_algorithm(
-                osrm_fmt, demands, nodes, max_capacity, df_dist)
-        elif algorithm_choice == "Sequential Route (เส้นทางเดิมตามลำดับ)":
-            routes, route_vols = run_sequential_algorithm(
-                osrm_fmt, demands, nodes, max_capacity)
-        else:
-            routes, route_vols = run_sweep_algorithm(
-                osrm_fmt, demands, nodes, max_capacity, df_dist)
-
-        route_distances = []
-        for r in routes:
-            full = [nodes[0]] + r + [nodes[0]]
-            route_distances.append(
-                sum(df_dist.loc[full[k], full[k+1]] for k in range(len(full)-1)))
-
-        grand_total = sum(route_distances)
-        activity_A  = grand_total / fuel_economy
-        carbon_E    = activity_A * ef_value * gwp_value
-
-        # Fleet Balancing
-        trip_data = [{"original_idx": i+1, "route": routes[i],
-                      "vol": route_vols[i], "dist": route_distances[i]}
-                     for i in range(len(routes))]
-        trip_data.sort(key=lambda x: x["dist"], reverse=True)
-        fleet_schedule    = {f"🚛 รถขยะคันที่ {i+1}": [] for i in range(int(max_vehicles))}
-        vehicle_workloads = {f"🚛 รถขยะคันที่ {i+1}": 0.0 for i in range(int(max_vehicles))}
-        for t in trip_data:
-            best = min(vehicle_workloads, key=vehicle_workloads.get)
-            t["trip_sequence"] = len(fleet_schedule[best]) + 1
-            fleet_schedule[best].append(t)
-            vehicle_workloads[best] += t["dist"]
-
-        # Dashboard
-        st.subheader("📊 สรุปผลการปฏิบัติงาน")
-        st.success("✅ วิเคราะห์และออกแบบเส้นทางเสร็จสมบูรณ์!")
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric("📌 จุดเก็บขยะ",     f"{total_customers} จุด")
-        c2.metric("🚛 รอบที่ต้องวิ่ง",  f"{len(routes)} เที่ยว")
-        c3.metric("🗑️ ปริมาตรรวม",     f"{sum(route_vols):.2f} ลบ.ม.")
-
-        c4, c5 = st.columns(2)
-        c4.metric("📍 ระยะทางรวม",      f"{grand_total:.2f} กม.")
-        c5.metric("🌿 คาร์บอน (CO₂e)",  f"{carbon_E:.2f} kg")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.subheader("🗺️ แผนที่จำลองการเดินรถ")
-        with st.spinner("กำลังเรนเดอร์แผนที่..."):
-            m = create_interactive_map(
-                routes, osrm_fmt, nodes, routing_mode, G_osm, map_type, line_style)
-            st_folium(m, width=1200, height=600, returned_objects=[])
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.subheader("📋 ตารางปฏิบัติงานของรถแต่ละคัน")
-        for vehicle_name, trips in fleet_schedule.items():
-            total_d = sum(t["dist"] for t in trips)
-            total_v = sum(t["vol"]  for t in trips)
-            with st.expander(
-                f"{vehicle_name} — {len(trips)} เที่ยว | "
-                f"{total_d:.2f} กม. | {total_v:.2f} ลบ.ม.",
-                expanded=True
-            ):
-                if not trips:
-                    st.write("✅ รถคันนี้ไม่ได้ออกปฏิบัติงาน (Standby)")
-                for t in trips:
-                    st.info(
-                        f"📍 {nodes[0]} ➡️ {' ➡️ '.join(t['route'])} ➡️ {nodes[0]}\n\n"
-                        f"ปริมาตร: {t['vol']:.2f} ลบ.ม. | ระยะทาง: {t['dist']:.2f} กม."
-                    )
