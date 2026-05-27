@@ -69,7 +69,7 @@ DATA_CAR15 = [
     ("สุรนิเวศ15A",                              14.891409, 102.018186,  2.2),
     ("สุรนิเวศ15B",                              14.890995, 102.0184,    1.3),
     ("โรงอาหารดอนตะวัน",                         14.890347, 102.017391,  0.0),
-    ("สุรนิเวศ1",                                 14.89502504, 102.0156524, 0.4),
+    ("สุรนิเวศ1",                                 14.89502504, 102.0155654, 0.4),
     ("อาคารอเนกประสงค์ 1,2 จุดที่ 1",            14.89556,  102.01628,   0.3),
     ("อาคารอเนกประสงค์ 1,2 จุดที่ 2",            14.89541,  102.01655,   0.3),
     ("สุรนิเวศ2",                                 14.89628592, 102.015116, 0.4),
@@ -720,13 +720,14 @@ if st.session_state.get("show_results", False):
         df_dist.columns = df_dist.index = nodes
 
         # ==========================================================
-        # 📌 ส่วนที่แก้ไข: สร้างปุ่มดาวน์โหลด Excel ตามรูปแบบไฟล์ตัวอย่างเป๊ะๆ
+        # 📥 ส่วนสร้างปุ่มดาวน์โหลดไฟล์ Excel (Custom Row-by-Row Writing via XlsxWriter)
         # ==========================================================
         st.markdown("---")
         st.subheader("📥 5. ดาวน์โหลดข้อมูล Distance Matrix (รูปแบบรายงานวิจัย)")
         st.markdown(
-            "คุณสามารถดาวน์โหลดตารางเมทริกซ์ระยะทางขับขี่จริง (OSRM) ที่ผ่านการจัดรูปแบบตามตัวอย่างรายงานของคุณ: "
-            "แถวบนสุดสรุปข้อมูล, แถวหัวข้อสีน้ำเงิน, **ไฮไลต์แถว Depot ด้วยสีแดง**, **แนวทแยงเป็นสีเทา** และสลับสีขาว-ฟ้าอ่อน"
+            "ตารางเมทริกซ์ระยะทางขับขี่จริง (OSRM) ได้รับการเขียนทับทีละเซลล์ตามรูปแบบรายงานวิจัยของคุณแล้ว: "
+            "แถวบนสุดสีน้ำเงินระบุชื่อ Depot, แถวหัวข้อสีน้ำเงินเข้มตัวหนา, **คอลัมน์ A แสดงชื่อจุดจริง**, "
+            "**ไฮไลต์แถว Depot (แถวแรก) ด้วยสีแดง**, **แนวทแยง (Diagonal) เป็นสีเทา** และสลับสีแถวขาว-ฟ้าอ่อน"
         )
         
         st.dataframe(df_dist.head(), use_container_width=True)
@@ -736,7 +737,7 @@ if st.session_state.get("show_results", False):
         workbook = xlsxwriter.Workbook(buffer, {'in_memory': True})
         worksheet = workbook.add_worksheet('Distance_Matrix')
 
-        # กำหนดชุดรูปแบบสไตล์ (Styles)
+        # นิยาม Styles รูปแบบตารางวิจัย (Custom Layout)
         format_title = workbook.add_format({
             'bg_color': '#1F4E78', 'font_color': 'white', 'bold': True,
             'valign': 'vcenter', 'border': 1, 'font_name': 'Segoe UI', 'font_size': 11
@@ -778,25 +779,25 @@ if st.session_state.get("show_results", False):
         nodes_list = df_dist.columns.tolist()
         num_nodes = len(nodes_list)
         
-        # เขียนแถวที่ 2 (Excel row Index 1): Title Bar สรุปจำนวนจุด
+        # เขียนแถวสรุปด้านบน (Excel แถวที่ 2)
         title_text = f"จำนวนจุด: {num_nodes} | Depot: {depot_name}"
         worksheet.merge_range(1, 0, 1, num_nodes + 1, title_text, format_title)
         worksheet.set_row(1, 24)
         
-        # เขียนแถวที่ 3 (Excel row Index 2): หัวตารางเมทริกซ์
+        # เขียนแถวหัวตาราง (Excel แถวที่ 3)
         worksheet.set_row(2, 40)
         worksheet.write(2, 0, "From \\ To", format_header)
         worksheet.write(2, 1, "Index", format_header)
         for c_idx, node_name in enumerate(nodes_list):
             worksheet.write(2, c_idx + 2, node_name, format_header)
 
-        # เขียนข้อมูลตั้งแต่แถวที่ 4 เป็นต้นไป (Excel row Index 3 onwards)
+        # เขียนข้อมูลแบบเจาะจงระดับเซลล์ (Excel แถวที่ 4 เป็นต้นไป)
         for r_idx in range(num_nodes):
             row_excel = r_idx + 3
             node_name = nodes_list[r_idx]
             is_depot_row = (r_idx == 0)
             
-            # ตรวจสอบและลงสีคอลัมน์ Label (A) และ Index (B)
+            # กำหนดรูปแบบสีสำหรับแกนซ้าย (คอลัมน์ A และ B)
             if is_depot_row:
                 fmt_label, fmt_idx = format_depot_cell, format_depot_cell_center
             elif r_idx % 2 == 1:
@@ -807,23 +808,23 @@ if st.session_state.get("show_results", False):
             worksheet.write(row_excel, 0, node_name, fmt_label)
             worksheet.write(row_excel, 1, r_idx, fmt_idx)
 
-            # เขียนค่าระยะทางพร้อมเงื่อนไขการทับซ้อนของสี (Priority Mapping)
+            # เขียนค่าระยะทาง OSRM ลงไปทีละเซลล์ พร้อมสไตล์ตามเงื่อนไขความสำคัญ
             for c_idx in range(num_nodes):
                 col_excel = c_idx + 2
                 val = df_dist.iloc[r_idx, c_idx]
                 
                 if r_idx == c_idx:
-                    cell_format = format_diagonal       # เงื่อนไขที่ 1: แนวทแยงต้องเป็นสีเทาเสมอ
+                    cell_format = format_diagonal       # เงื่อนไขหลัก: แนวทแยงต้องสีเทาเสมอ
                 elif is_depot_row:
-                    cell_format = format_depot_cell     # เงื่อนไขที่ 2: แถว Depot ต้องเป็นสีแดง
+                    cell_format = format_depot_cell     # แถว Depot ต้องสีแดง
                 elif r_idx % 2 == 1:
-                    cell_format = format_data_blue       # เงื่อนไขที่ 3: แถวคี่เป็นสีฟ้าอ่อน
+                    cell_format = format_data_blue       # สลับสีฟ้าอ่อน
                 else:
-                    cell_format = format_data_white      # เงื่อนไขที่ 4: แถวคู่เป็นสีขาว
+                    cell_format = format_data_white      # สลับสีขาว
                     
                 worksheet.write_number(row_excel, col_excel, val, cell_format)
                 
-        # ขยายขอบเขตความกว้างของคอลัมน์ให้มองเห็นชื่อชัดเจนโดยไม่ต้องเลื่อนปรับเอง
+        # ขยายขอบเขตความกว้างของคอลัมน์ให้มองเห็นชื่อชัดเจน
         worksheet.set_column(0, 0, 45) 
         worksheet.set_column(1, 1, 10) 
         worksheet.set_column(2, num_nodes + 1, 18) 
@@ -891,7 +892,7 @@ if st.session_state.get("show_results", False):
         c5.metric("🌿 คาร์บอน (CO₂e)",  f"{carbon_E:.2f} kg")
 
         st.markdown("<br>", unsafe_allow_html=True)
-        st.subheader("🗺️ แฝนที่จำลองการเดินรถ")
+        st.subheader("🗺️ แผนที่จำลองการเดินรถ")
         with st.spinner("กำลังเรนเดอร์แผนที่..."):
             m = create_interactive_map(
                 routes, osrm_fmt, nodes, routing_mode, G_osm, map_type, line_style)
