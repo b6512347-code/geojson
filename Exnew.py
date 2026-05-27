@@ -582,348 +582,331 @@ def run_all_algorithms_benchmark(
 
 
 def render_benchmark_section(algo_results, fuel_economy, ef_value, gwp_value, max_capacity):
-    """แสดงผล Benchmark พร้อมวิธีคำนวณ"""
+    """แสดงผล Benchmark — HTML ล้วน อ่านง่ายทั้ง light/dark mode"""
 
     st.subheader("📊 5. เปรียบเทียบประสิทธิภาพทุก Algorithm")
 
-    # ---- หัวข้อวิธีคำนวณ (ย่อ) ----
-    with st.expander("📐 สูตรและวิธีคำนวณแต่ละเมตริก (คลิกเพื่อขยาย)", expanded=False):
-        st.markdown(f"""
-**1. Carbon Footprint (CO₂e)**
-> คาร์บอนที่ปล่อยออกมาจากการเผาไหม้เชื้อเพลิง
+    # ── CSS ──────────────────────────────────────────────────────────
+    st.markdown("""
+<style>
+.bm-fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;margin:10px 0 18px}
+.bm-fc{background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;padding:10px 13px}
+.bm-fc-lbl{font-size:11px;color:#6c757d;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+.bm-fc-eq{font-family:monospace;font-size:12.5px;color:#212529;line-height:1.6}
+.bm-fc-sub{font-size:11px;color:#6c757d;margin-top:2px}
+.bm-tbl{width:100%;border-collapse:collapse;font-size:13.5px;margin-bottom:18px}
+.bm-tbl th{background:#343a40;color:#f8f9fa;font-weight:700;font-size:12px;padding:9px 11px;text-align:left;border-bottom:3px solid #212529;white-space:nowrap}
+.bm-tbl td{padding:9px 11px;border-bottom:1px solid #dee2e6;color:#212529;font-size:13px;white-space:nowrap}
+.bm-tbl .tr-base td{background:#fff8e1;color:#4a3000;font-weight:500}
+.bm-tbl .tr-best td{background:#e8f5e9;color:#1b3a1f;font-weight:500}
+.bm-tbl tr:not(.tr-base):not(.tr-best):hover td{background:#f1f3f5}
+.bm-bdg-base{background:#e65100;color:#fff;font-size:10.5px;padding:3px 8px;border-radius:99px;font-weight:700;vertical-align:middle}
+.bm-bdg-best{background:#1b5e20;color:#fff;font-size:10.5px;padding:3px 8px;border-radius:99px;font-weight:700;vertical-align:middle}
+.bm-bdg-n{background:#6c757d;color:#fff;font-size:10.5px;padding:3px 8px;border-radius:99px;vertical-align:middle}
+.bm-nb{font-weight:700;color:#1b5e20}
+.bm-na{font-weight:700;color:#bf360c}
+.bm-nn{font-weight:600;color:#1a1a2e}
+.bm-2col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+.bm-sc{border-radius:10px;padding:18px 20px}
+.bm-sc.base{background:#fffbea;border:1.5px solid #f6c90e}
+.bm-sc.best{background:#f0fdf4;border:1.5px solid #6fcf97}
+.bm-sct{font-size:15px;font-weight:700;margin:0 0 14px}
+.bm-sct.base{color:#7a5c00}
+.bm-sct.best{color:#155724}
+.bm-step{margin-bottom:10px}
+.bm-slbl{font-size:11px;font-weight:700;color:#6c757d;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+.bm-sbox{background:rgba(0,0,0,0.05);border-radius:6px;padding:7px 11px;font-family:monospace;font-size:12.5px;color:#212529;line-height:1.65}
+.bm-sres{font-weight:700;font-size:13.5px;display:block;margin-top:2px}
+.bm-sres.base{color:#b45309}
+.bm-sres.best{color:#15803d}
+.bm-pill{background:#d4edda;border:1px solid #b2dfdb;border-radius:6px;padding:9px 13px;margin-top:12px;font-size:13px;color:#155724;font-weight:700}
+.bm-sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.bm-mc{background:#f8f9fa;border-radius:8px;padding:13px 14px}
+.bm-mc-lbl{font-size:11.5px;color:#6c757d;margin-bottom:4px}
+.bm-mc-val{font-size:22px;font-weight:700;color:#212529}
+.bm-mc-delta{font-size:12px;margin-top:2px;color:#1a7a40;font-weight:700}
+.bm-brow{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.bm-bname{font-size:11.5px;color:#495057;width:155px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bm-btrack{flex:1;background:#e9ecef;border-radius:99px;height:20px;overflow:hidden}
+.bm-bfill{height:100%;border-radius:99px;display:flex;align-items:center;padding-left:9px;min-width:32px}
+.bm-bval{font-size:11px;font-weight:700;color:#fff;white-space:nowrap}
+.bm-sh{font-size:15px;font-weight:700;color:#212529;margin:20px 0 10px}
+.bm-leg{display:flex;gap:16px;margin-bottom:8px;font-size:12px;color:#6c757d;flex-wrap:wrap}
+.bm-ld{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle}
+</style>
+""", unsafe_allow_html=True)
 
-$$CO_2e = \\frac{{D_{{total}}}}{{FE}} \\times EF \\times GWP$$
+    # ── ข้อมูลทุก algorithm ──────────────────────────────────────────
+    baseline_key = "Sequential Route\n(Baseline)"
+    base_m = algo_results[baseline_key]
 
-| ตัวแปร | ความหมาย | ค่าที่ใช้ |
-|---|---|---|
-| $D_{{total}}$ | ระยะทางรวมทุกเที่ยว (กม.) | คำนวณจาก Algorithm |
-| $FE$ | อัตราสิ้นเปลือง (กม./ลิตร) | **{fuel_economy}** |
-| $EF$ | Emission Factor (kgCO₂/ลิตร) | **{ef_value}** |
-| $GWP$ | Global Warming Potential | **{gwp_value}** |
-
----
-**2. Efficiency Gap (EG)**
-> ระยะทางที่ประหยัดได้เมื่อเทียบกับ Sequential (Baseline)
-
-$$EG = \\frac{{D_{{baseline}} - D_{{algorithm}}}}{{D_{{baseline}}}} \\times 100\\%$$
-
-เนื่องจาก CO₂ ∝ Distance โดยตรง → **ลดระยะทาง X% = ลดคาร์บอน X% เช่นกัน**
-
----
-**3. Load Balance Index (LBI)**
-> ความสมดุลของ Load ระหว่างเที่ยวต่างๆ (ยิ่งใกล้ 1 = สมดุลดี)
-
-$$LBI = 1 - \\frac{{\\sigma_{{loads}}}}{{\\mu_{{loads}}}}$$
-
-| ตัวแปร | ความหมาย |
-|---|---|
-| $\\sigma_{{loads}}$ | ส่วนเบี่ยงเบนมาตรฐานของ Load แต่ละเที่ยว |
-| $\\mu_{{loads}}$ | ค่าเฉลี่ย Load แต่ละเที่ยว |
-
----
-**4. Vehicle Utilization Rate (VUR)**
-> ประสิทธิภาพการใช้ความจุรถ (%)
-
-$$VUR = \\frac{{\\sum Demand_{{routes}}}}{{Capacity_{{max}} \\times N_{{trips}}}} \\times 100\\%$$
-
-ค่า VUR = {max_capacity} ลบ.ม. ต่อเที่ยว (ความจุสูงสุด)
-
----
-**5. Carbon Intensity per m³ (CIT)**
-> คาร์บอนที่ปล่อยต่อขยะ 1 ลูกบาศก์เมตรที่เก็บได้
-
-$$CIT = \\frac{{CO_2e_{{total}}}}{{Demand_{{total}}}} \\quad \\text{{(kgCO}}_2\\text{{e / ลบ.ม.)}}$$
-""")
-
-    # ---- ตารางเปรียบเทียบ ----
-    algo_names = list(algo_results.keys())
-    baseline_carbon = algo_results["Sequential Route\n(Baseline)"]["carbon"]
-
-    rows = []
-    for name, m in algo_results.items():
-        carbon_reduce_pct = ((baseline_carbon - m["carbon"]) / baseline_carbon * 100) if baseline_carbon > 0 else 0
-        rows.append({
-            "Algorithm":           name.replace("\n", " "),
-            "ระยะทางรวม (กม.)":   m["total_dist"],
-            "จำนวนเที่ยว":        m["n_trips"],
-            "CO₂e รวม (kg)":      m["carbon"],
-            "ลดคาร์บอน vs Baseline (%)": round(carbon_reduce_pct, 2),
-            "EG — ลดระยะทาง (%)": m["eg"],
-            "LBI (0–1)":           m["lbi"],
-            "VUR (%)":             m["vur"],
-            "CIT (kgCO₂e/ลบ.ม.)": m["cit"],
-        })
-
-    df_bench = pd.DataFrame(rows).set_index("Algorithm")
-
-    # Highlight best value per column (ไม่รวม Baseline row ใน highlight)
-    def highlight_best(df):
-        styled = pd.DataFrame('', index=df.index, columns=df.columns)
-        best_algo = [a for a in df.index if "Baseline" not in a]
-        for col in ["ระยะทางรวม (กม.)", "จำนวนเที่ยว", "CO₂e รวม (kg)", "CIT (kgCO₂e/ลบ.ม.)"]:
-            if col in df.columns:
-                best_val = df.loc[best_algo, col].min()
-                for idx in best_algo:
-                    if df.loc[idx, col] == best_val:
-                        styled.loc[idx, col] = 'background-color: #d4edda; font-weight: bold'
-        for col in ["ลดคาร์บอน vs Baseline (%)", "EG — ลดระยะทาง (%)", "LBI (0–1)", "VUR (%)"]:
-            if col in df.columns:
-                best_val = df.loc[best_algo, col].max()
-                for idx in best_algo:
-                    if df.loc[idx, col] == best_val:
-                        styled.loc[idx, col] = 'background-color: #d4edda; font-weight: bold'
-        # Baseline row
-        for col in df.columns:
-            styled.loc["Sequential Route (Baseline)", col] = 'background-color: #fff3cd'
-        return styled
-
-    st.markdown("**🟩 เขียว = ค่าดีที่สุดในกลุ่ม | 🟨 เหลือง = Baseline (Sequential)**")
-    st.dataframe(
-        df_bench.style.apply(highlight_best, axis=None).format("{:.4f}"),
-        use_container_width=True,
-        height=240,
-    )
-
-    # ---- ตัวอย่างการคำนวณแบบ Step-by-step ----
-    st.markdown("---")
-    st.markdown("### 🧮 ตัวอย่างการคำนวณแบบละเอียด (เปรียบเทียบ Baseline vs ดีที่สุด)")
-
-    # หา Algorithm ที่ดีที่สุดด้านระยะทาง (ไม่นับ baseline)
     non_base = {k: v for k, v in algo_results.items() if "Baseline" not in k}
     best_name = min(non_base, key=lambda k: non_base[k]["total_dist"])
     best_m    = non_base[best_name]
-    base_m    = algo_results["Sequential Route\n(Baseline)"]
-
     best_label = best_name.replace("\n", " ")
 
-    col_a, col_b = st.columns(2)
+    baseline_carbon = base_m["carbon"]
 
-    # ---- pre-compute shared values ----
-    eg_val          = best_m["eg"]
-    carbon_red      = round(((base_m['carbon'] - best_m['carbon']) / base_m['carbon']) * 100, 2)
-    carbon_saved_kg = round(base_m['carbon'] - best_m['carbon'], 4)
-    dist_saved_km   = round(base_m['total_dist'] - best_m['total_dist'], 3)
+    # ── 1. สูตรย่อ ───────────────────────────────────────────────────
+    st.markdown(f"""
+<div class="bm-sh">สูตรที่ใช้คำนวณ</div>
+<div class="bm-fgrid">
+  <div class="bm-fc">
+    <div class="bm-fc-lbl">CO₂e</div>
+    <div class="bm-fc-eq">D ÷ FE × EF × GWP</div>
+    <div class="bm-fc-sub">FE={fuel_economy} กม./ล. | EF={ef_value}</div>
+  </div>
+  <div class="bm-fc">
+    <div class="bm-fc-lbl">EG — ประสิทธิภาพ (%)</div>
+    <div class="bm-fc-eq">(D_base − D_algo) / D_base × 100</div>
+    <div class="bm-fc-sub">ลดระยะทาง X% = ลดคาร์บอน X%</div>
+  </div>
+  <div class="bm-fc">
+    <div class="bm-fc-lbl">LBI — ความสมดุลโหลด</div>
+    <div class="bm-fc-eq">1 − (σ_loads / μ_loads)</div>
+    <div class="bm-fc-sub">ยิ่งใกล้ 1 = สมดุลดี</div>
+  </div>
+  <div class="bm-fc">
+    <div class="bm-fc-lbl">VUR — ใช้งานรถ (%)</div>
+    <div class="bm-fc-eq">Σ demand / (Cap × N_trips) × 100</div>
+    <div class="bm-fc-sub">Cap = {max_capacity} ลบ.ม.</div>
+  </div>
+  <div class="bm-fc">
+    <div class="bm-fc-lbl">CIT — คาร์บอน/ลบ.ม.</div>
+    <div class="bm-fc-eq">CO₂e_total / Demand_total</div>
+    <div class="bm-fc-sub">kgCO₂e ต่อ 1 ลบ.ม.</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
-    base_mu    = float(np.mean(base_m['route_vols']))
-    base_sigma = float(np.std(base_m['route_vols']))
-    best_mu    = float(np.mean(best_m['route_vols']))
-    best_sigma = float(np.std(best_m['route_vols']))
+    # ── 2. ตารางเปรียบเทียบ ──────────────────────────────────────────
+    st.markdown("**🟩 เขียว = ดีที่สุด &nbsp;&nbsp; 🟨 เหลือง = Baseline**")
 
-    def _step_row(label, formula, result):
-        """สร้าง HTML แถว step หนึ่งแถว"""
+    rows_html = ""
+    for name, m in algo_results.items():
+        carbon_red = ((baseline_carbon - m["carbon"]) / baseline_carbon * 100) if baseline_carbon > 0 else 0
+        is_base = "Baseline" in name
+        is_best = name == best_name
+        tr_cls  = "tr-base" if is_base else ("tr-best" if is_best else "")
+        badge   = ('<span class="bm-bdg-base">Baseline</span>' if is_base
+                   else ('<span class="bm-bdg-best">ดีที่สุด</span>' if is_best
+                         else '<span class="bm-bdg-n">—</span>'))
+        # สีตัวเลข: แดงส้มสำหรับ baseline, เขียวเข้มสำหรับ best, ดำสำหรับทั่วไป
+        nc = 'bm-na' if is_base else ('bm-nb' if is_best else 'bm-nn')
+        rows_html += f"""
+<tr class="{tr_cls}">
+  <td style="font-weight:600">{name.replace(chr(10),' ')} {badge}</td>
+  <td class="{nc}">{m['total_dist']:.2f}</td>
+  <td class="{nc}">{m['n_trips']}</td>
+  <td class="{nc}">{m['carbon']:.3f}</td>
+  <td class="{nc}">{carbon_red:.1f}%</td>
+  <td class="{nc}">{m['eg']:.1f}%</td>
+  <td class="{nc}">{m['lbi']:.3f}</td>
+  <td class="{nc}">{m['vur']:.1f}%</td>
+  <td class="{nc}">{m['cit']:.4f}</td>
+</tr>"""
+
+    st.markdown(f"""
+<table class="bm-tbl">
+<thead><tr>
+  <th>Algorithm</th><th>ระยะทาง (กม.)</th><th>เที่ยว</th>
+  <th>CO₂e (kg)</th><th>ลดคาร์บอน</th><th>EG</th>
+  <th>LBI</th><th>VUR</th><th>CIT</th>
+</tr></thead>
+<tbody>{rows_html}</tbody>
+</table>
+""", unsafe_allow_html=True)
+
+    # ── 3. Step-by-step cards ────────────────────────────────────────
+    st.markdown('<div class="bm-sh">ตัวอย่างการคำนวณ — Baseline vs ดีที่สุด</div>',
+                unsafe_allow_html=True)
+
+    def _step(label, calc_text, result_text, cls):
         return f"""
-        <div style="margin-bottom:10px;">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px;">{label}</div>
-          <div style="background:rgba(0,0,0,0.06);border-radius:6px;padding:8px 12px;
-                      font-family:monospace;font-size:13px;line-height:1.7;">
-            {formula}<br>
-            <span style="font-weight:700;font-size:14px;">= {result}</span>
-          </div>
-        </div>"""
-
-    # ── กล่องซ้าย: Baseline ──────────────────────────────────────────
-    with col_a:
-        html_base = f"""
-<div style="background:#fff8e1;border-radius:12px;padding:20px 22px;
-            border-left:6px solid #f59e0b;color:#1a1a1a;">
-  <h4 style="margin:0 0 16px;color:#92400e;font-size:17px;">
-    🔴 Sequential Route <span style="font-weight:400;font-size:14px;">(Baseline)</span>
-  </h4>
-
-  {_step_row(
-      "Step 1 — ระยะทางรวม",
-      f"D_total",
-      f"<span style='color:#b45309'>{base_m['total_dist']:.3f} กม.</span> &nbsp;({base_m['n_trips']} เที่ยว)"
-  )}
-
-  {_step_row(
-      "Step 2 — ปริมาณเชื้อเพลิง",
-      f"{base_m['total_dist']:.3f} ÷ {fuel_economy}",
-      f"<span style='color:#b45309'>{base_m['total_dist']/fuel_economy:.3f} ลิตร</span>"
-  )}
-
-  {_step_row(
-      "Step 3 — CO₂e",
-      f"{base_m['total_dist']/fuel_economy:.3f} × {ef_value} × {gwp_value}",
-      f"<span style='color:#b45309'>{base_m['carbon']:.4f} kg CO₂e</span>"
-  )}
-
-  {_step_row(
-      "Step 4 — LBI",
-      f"μ={base_mu:.3f}, σ={base_sigma:.3f} → 1 − ({base_sigma:.3f} ÷ {base_mu:.3f})",
-      f"<span style='color:#b45309'>{base_m['lbi']:.4f}</span>"
-  )}
-
-  {_step_row(
-      "Step 5 — VUR",
-      f"{base_m['total_demand']:.2f} ÷ ({max_capacity} × {base_m['n_trips']}) × 100",
-      f"<span style='color:#b45309'>{base_m['vur']:.2f}%</span>"
-  )}
-
-  {_step_row(
-      "Step 6 — CIT",
-      f"{base_m['carbon']:.4f} ÷ {base_m['total_demand']:.2f}",
-      f"<span style='color:#b45309'>{base_m['cit']:.4f} kgCO₂e/ลบ.ม.</span>"
-  )}
-</div>"""
-        st.markdown(html_base, unsafe_allow_html=True)
-
-    # ── กล่องขวา: Best Algorithm ─────────────────────────────────────
-    with col_b:
-        html_best = f"""
-<div style="background:#f0fdf4;border-radius:12px;padding:20px 22px;
-            border-left:6px solid #16a34a;color:#1a1a1a;">
-  <h4 style="margin:0 0 16px;color:#14532d;font-size:17px;">
-    🏆 {best_label}
-  </h4>
-
-  {_step_row(
-      "Step 1 — ระยะทางรวม",
-      f"D_total",
-      f"<span style='color:#15803d'>{best_m['total_dist']:.3f} กม.</span> &nbsp;({best_m['n_trips']} เที่ยว)"
-  )}
-
-  {_step_row(
-      "Step 2 — ปริมาณเชื้อเพลิง",
-      f"{best_m['total_dist']:.3f} ÷ {fuel_economy}",
-      f"<span style='color:#15803d'>{best_m['total_dist']/fuel_economy:.3f} ลิตร</span>"
-  )}
-
-  {_step_row(
-      "Step 3 — CO₂e",
-      f"{best_m['total_dist']/fuel_economy:.3f} × {ef_value} × {gwp_value}",
-      f"<span style='color:#15803d'>{best_m['carbon']:.4f} kg CO₂e</span>"
-  )}
-
-  {_step_row(
-      "Step 4 — LBI",
-      f"μ={best_mu:.3f}, σ={best_sigma:.3f} → 1 − ({best_sigma:.3f} ÷ {best_mu:.3f})",
-      f"<span style='color:#15803d'>{best_m['lbi']:.4f}</span>"
-  )}
-
-  {_step_row(
-      "Step 5 — VUR",
-      f"{best_m['total_demand']:.2f} ÷ ({max_capacity} × {best_m['n_trips']}) × 100",
-      f"<span style='color:#15803d'>{best_m['vur']:.2f}%</span>"
-  )}
-
-  {_step_row(
-      "Step 6 — CIT",
-      f"{best_m['carbon']:.4f} ÷ {best_m['total_demand']:.2f}",
-      f"<span style='color:#15803d'>{best_m['cit']:.4f} kgCO₂e/ลบ.ม.</span>"
-  )}
-
-  <div style="margin-top:14px;padding:10px 14px;border-radius:8px;
-              background:#dcfce7;border:1px solid #86efac;font-size:13px;color:#14532d;">
-    📉 ลดระยะทาง <strong>{eg_val:.1f}%</strong> &nbsp;|&nbsp;
-    🌿 ลดคาร์บอน <strong>{carbon_red:.1f}%</strong>
-    ({carbon_saved_kg:.3f} kg CO₂e)
+<div class="bm-step">
+  <div class="bm-slbl">{label}</div>
+  <div class="bm-sbox">{calc_text}
+    <span class="bm-sres {cls}">= {result_text}</span>
   </div>
 </div>"""
-        st.markdown(html_best, unsafe_allow_html=True)
 
-    # ---- สรุปผลประหยัด ----
-    st.markdown("---")
-    st.markdown("### 🎯 สรุปผลประหยัดรวมเมื่อใช้ Algorithm ที่ดีที่สุด")
-
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric(
-        label="🛣️ ระยะทางที่ประหยัด",
-        value=f"{dist_saved_km:.2f} กม.",
-        delta=f"-{eg_val:.1f}% vs Baseline",
-        delta_color="inverse",
-    )
-    c2.metric(
-        label="🌿 คาร์บอนที่ลดได้",
-        value=f"{carbon_saved_kg:.3f} kg CO₂e",
-        delta=f"-{carbon_red:.1f}% vs Baseline",
-        delta_color="inverse",
-    )
-    c3.metric(
-        label="⚖️ Load Balance (LBI)",
-        value=f"{best_m['lbi']:.3f}",
-        delta=f"+{round(best_m['lbi'] - base_m['lbi'], 3)} vs Baseline",
-    )
-    c4.metric(
-        label="🚛 Utilization Rate",
-        value=f"{best_m['vur']:.1f}%",
-        delta=f"+{round(best_m['vur'] - base_m['vur'], 1)}% vs Baseline",
+    bm   = base_m
+    bmu  = float(np.mean(bm["route_vols"]))
+    bsig = float(np.std(bm["route_vols"]))
+    bsteps = (
+        _step("Step 1 — ระยะทางรวม",
+              f"D = {bm['total_dist']:.2f} กม. &nbsp;({bm['n_trips']} เที่ยว)",
+              f"{bm['total_dist']:.2f} กม.", "base") +
+        _step("Step 2 — เชื้อเพลิง",
+              f"{bm['total_dist']:.2f} ÷ {fuel_economy}",
+              f"{bm['total_dist']/fuel_economy:.3f} ลิตร", "base") +
+        _step("Step 3 — CO₂e",
+              f"{bm['total_dist']/fuel_economy:.3f} × {ef_value} × {gwp_value}",
+              f"{bm['carbon']:.3f} kg CO₂e", "base") +
+        _step("Step 4 — LBI",
+              f"1 − ({bsig:.3f} ÷ {bmu:.3f})",
+              f"{bm['lbi']:.4f}", "base") +
+        _step("Step 5 — VUR",
+              f"{bm['total_demand']:.1f} ÷ ({max_capacity} × {bm['n_trips']}) × 100",
+              f"{bm['vur']:.1f}%", "base") +
+        _step("Step 6 — CIT",
+              f"{bm['carbon']:.3f} ÷ {bm['total_demand']:.1f}",
+              f"{bm['cit']:.4f} kgCO₂e/ลบ.ม.", "base")
     )
 
-    # ---- Bar Chart เปรียบเทียบ ----
-    st.markdown("---")
-    st.markdown("### 📈 กราฟเปรียบเทียบ")
+    bst  = best_m
+    btmu = float(np.mean(bst["route_vols"]))
+    btsig= float(np.std(bst["route_vols"]))
+    eg_val       = bst["eg"]
+    carbon_red   = round(((bm["carbon"] - bst["carbon"]) / bm["carbon"]) * 100, 2)
+    carbon_saved = round(bm["carbon"] - bst["carbon"], 3)
+    dist_saved   = round(bm["total_dist"] - bst["total_dist"], 2)
 
-    tab1, tab2, tab3 = st.tabs(["🛣️ ระยะทาง & คาร์บอน", "⚖️ Load Balance (LBI)", "🚛 VUR & CIT"])
+    bststeps = (
+        _step("Step 1 — ระยะทางรวม",
+              f"D = {bst['total_dist']:.2f} กม. &nbsp;({bst['n_trips']} เที่ยว)",
+              f"{bst['total_dist']:.2f} กม.", "best") +
+        _step("Step 2 — เชื้อเพลิง",
+              f"{bst['total_dist']:.2f} ÷ {fuel_economy}",
+              f"{bst['total_dist']/fuel_economy:.3f} ลิตร", "best") +
+        _step("Step 3 — CO₂e",
+              f"{bst['total_dist']/fuel_economy:.3f} × {ef_value} × {gwp_value}",
+              f"{bst['carbon']:.3f} kg CO₂e", "best") +
+        _step("Step 4 — LBI",
+              f"1 − ({btsig:.3f} ÷ {btmu:.3f})",
+              f"{bst['lbi']:.4f}", "best") +
+        _step("Step 5 — VUR",
+              f"{bst['total_demand']:.1f} ÷ ({max_capacity} × {bst['n_trips']}) × 100",
+              f"{bst['vur']:.1f}%", "best") +
+        _step("Step 6 — CIT",
+              f"{bst['carbon']:.3f} ÷ {bst['total_demand']:.1f}",
+              f"{bst['cit']:.4f} kgCO₂e/ลบ.ม.", "best")
+    )
+
+    pill = (f'<div class="bm-pill">'
+            f'ลดระยะทาง {eg_val:.1f}% ({dist_saved:.2f} กม.) &nbsp;|&nbsp; '
+            f'ลดคาร์บอน {carbon_red:.1f}% ({carbon_saved:.3f} kg CO₂e)'
+            f'</div>')
+
+    st.markdown(f"""
+<div class="bm-2col">
+  <div class="bm-sc base">
+    <div class="bm-sct base">🔴 Sequential Route (Baseline)</div>
+    {bsteps}
+  </div>
+  <div class="bm-sc best">
+    <div class="bm-sct best">🏆 {best_label}</div>
+    {bststeps}
+    {pill}
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    # ── 4. Summary metrics ────────────────────────────────────────────
+    st.markdown('<div class="bm-sh">สรุปผลประหยัด</div>', unsafe_allow_html=True)
+    st.markdown(f"""
+<div class="bm-sgrid">
+  <div class="bm-mc">
+    <div class="bm-mc-lbl">🛣️ ระยะทางที่ประหยัด</div>
+    <div class="bm-mc-val">{dist_saved:.2f} กม.</div>
+    <div class="bm-mc-delta">−{eg_val:.1f}% vs Baseline</div>
+  </div>
+  <div class="bm-mc">
+    <div class="bm-mc-lbl">🌿 คาร์บอนที่ลดได้</div>
+    <div class="bm-mc-val">{carbon_saved:.3f} kg</div>
+    <div class="bm-mc-delta">−{carbon_red:.1f}% vs Baseline</div>
+  </div>
+  <div class="bm-mc">
+    <div class="bm-mc-lbl">⚖️ Load Balance (LBI)</div>
+    <div class="bm-mc-val">{bst['lbi']:.3f}</div>
+    <div class="bm-mc-delta">+{round(bst['lbi']-bm['lbi'],3)} vs Baseline</div>
+  </div>
+  <div class="bm-mc">
+    <div class="bm-mc-lbl">🚛 Utilization Rate</div>
+    <div class="bm-mc-val">{bst['vur']:.1f}%</div>
+    <div class="bm-mc-delta">+{round(bst['vur']-bm['vur'],1)}% vs Baseline</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    # ── 5. Bar charts ─────────────────────────────────────────────────
+    st.markdown('<div class="bm-sh">กราฟเปรียบเทียบ</div>', unsafe_allow_html=True)
+
+    labels  = [k.replace("\n", " ") for k in algo_results.keys()]
+    short_labels = [lb.replace(" (Baseline)","").replace("Savings","Svgs").replace("Algorithm","Algo") for lb in labels]
+    is_base_list = ["Baseline" in lb for lb in labels]
+    is_best_list = [k == best_name for k in algo_results.keys()]
+
+    def bar_color_dist(i):
+        return "#e74c3c" if is_base_list[i] else ("#2ecc71" if is_best_list[i] else "#3498db")
+    def bar_color_lbi(i):
+        return "#e74c3c" if is_base_list[i] else "#9b59b6"
+    def bar_color_vur(i):
+        return "#e74c3c" if is_base_list[i] else "#e67e22"
+    def bar_color_cit(i):
+        return "#e74c3c" if is_base_list[i] else "#1abc9c"
+    def bar_color_carbon(i):
+        return "#e74c3c" if is_base_list[i] else ("#2ecc71" if is_best_list[i] else "#27ae60")
+
+    def build_bars(values, colors, fmt_fn):
+        max_v = max(values) if max(values) > 0 else 1
+        rows = ""
+        for i, (v, name) in enumerate(zip(values, short_labels)):
+            pct = max(5, int(v / max_v * 100))
+            rows += f"""
+<div class="bm-brow">
+  <div class="bm-bname" title="{labels[i]}">{name}</div>
+  <div class="bm-btrack">
+    <div class="bm-bfill" style="width:{pct}%;background:{colors[i]};">
+      <span class="bm-bval">{fmt_fn(v)}</span>
+    </div>
+  </div>
+</div>"""
+        return rows
+
+    dist_vals   = [m["total_dist"] for m in algo_results.values()]
+    carbon_vals = [m["carbon"]     for m in algo_results.values()]
+    lbi_vals    = [m["lbi"]        for m in algo_results.values()]
+    vur_vals    = [m["vur"]        for m in algo_results.values()]
+    cit_vals    = [m["cit"]        for m in algo_results.values()]
+
+    tab1, tab2, tab3 = st.tabs(["🛣️ ระยะทาง & คาร์บอน", "⚖️ LBI", "🚛 VUR & CIT"])
 
     with tab1:
-        labels = [k.replace("\n", " ") for k in algo_results.keys()]
-        dists  = [v["total_dist"] for v in algo_results.values()]
-        carbons = [v["carbon"] for v in algo_results.values()]
-        colors_d = ["#e74c3c" if "Baseline" in l else "#3498db" for l in labels]
-        colors_c = ["#e74c3c" if "Baseline" in l else "#27ae60" for l in labels]
-
-        fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-        axes[0].bar(labels, dists, color=colors_d, edgecolor="white", linewidth=0.5)
-        axes[0].set_title("ระยะทางรวม (กม.)", fontsize=13, fontweight="bold")
-        axes[0].set_ylabel("กิโลเมตร")
-        for i, v in enumerate(dists):
-            axes[0].text(i, v + 0.2, f"{v:.1f}", ha='center', va='bottom', fontsize=9)
-        axes[0].tick_params(axis='x', labelsize=8)
-
-        axes[1].bar(labels, carbons, color=colors_c, edgecolor="white", linewidth=0.5)
-        axes[1].set_title("CO₂e รวม (kg)", fontsize=13, fontweight="bold")
-        axes[1].set_ylabel("kg CO₂e")
-        for i, v in enumerate(carbons):
-            axes[1].text(i, v + 0.01, f"{v:.2f}", ha='center', va='bottom', fontsize=9)
-        axes[1].tick_params(axis='x', labelsize=8)
-
-        plt.tight_layout()
-        st.pyplot(fig)
-        plt.close()
+        st.markdown(f"""
+<div class="bm-leg">
+  <span><span class="bm-ld" style="background:#e74c3c"></span>Baseline</span>
+  <span><span class="bm-ld" style="background:#2ecc71"></span>ดีที่สุด</span>
+  <span><span class="bm-ld" style="background:#3498db"></span>อื่นๆ</span>
+</div>
+<div style="font-size:12px;color:#6c757d;margin-bottom:5px;font-weight:600;">ระยะทางรวม (กม.)</div>
+{build_bars(dist_vals, [bar_color_dist(i) for i in range(len(labels))], lambda v: f"{v:.1f}")}
+<div style="font-size:12px;color:#6c757d;margin:12px 0 5px;font-weight:600;">CO₂e รวม (kg)</div>
+{build_bars(carbon_vals, [bar_color_carbon(i) for i in range(len(labels))], lambda v: f"{v:.2f}")}
+""", unsafe_allow_html=True)
 
     with tab2:
-        lbis = [v["lbi"] for v in algo_results.values()]
-        colors_l = ["#e74c3c" if "Baseline" in l else "#9b59b6" for l in labels]
-
-        fig2, ax2 = plt.subplots(figsize=(9, 4))
-        bars = ax2.bar(labels, lbis, color=colors_l, edgecolor="white")
-        ax2.axhline(y=1.0, color="gray", linestyle="--", alpha=0.5, label="LBI = 1 (สมบูรณ์แบบ)")
-        ax2.set_title("Load Balance Index (LBI) — ยิ่งสูงยิ่งดี (max=1)", fontsize=13, fontweight="bold")
-        ax2.set_ylim(0, 1.15)
-        ax2.set_ylabel("LBI")
-        ax2.legend()
-        for i, v in enumerate(lbis):
-            ax2.text(i, v + 0.02, f"{v:.3f}", ha='center', va='bottom', fontsize=10, fontweight="bold")
-        ax2.tick_params(axis='x', labelsize=8)
-        plt.tight_layout()
-        st.pyplot(fig2)
-        plt.close()
+        st.markdown(f"""
+<div class="bm-leg">
+  <span><span class="bm-ld" style="background:#e74c3c"></span>Baseline</span>
+  <span><span class="bm-ld" style="background:#9b59b6"></span>อื่นๆ</span>
+</div>
+<div style="font-size:12px;color:#6c757d;margin-bottom:5px;font-weight:600;">Load Balance Index (LBI) — ยิ่งสูงยิ่งดี (max = 1.0)</div>
+{build_bars(lbi_vals, [bar_color_lbi(i) for i in range(len(labels))], lambda v: f"{v:.3f}")}
+""", unsafe_allow_html=True)
 
     with tab3:
-        vurs = [v["vur"] for v in algo_results.values()]
-        cits = [v["cit"] for v in algo_results.values()]
-        colors_v = ["#e74c3c" if "Baseline" in l else "#e67e22" for l in labels]
-        colors_ci = ["#e74c3c" if "Baseline" in l else "#1abc9c" for l in labels]
-
-        fig3, axes3 = plt.subplots(1, 2, figsize=(12, 4))
-        axes3[0].bar(labels, vurs, color=colors_v, edgecolor="white")
-        axes3[0].set_title("Vehicle Utilization Rate — VUR (%)", fontsize=13, fontweight="bold")
-        axes3[0].set_ylabel("%")
-        for i, v in enumerate(vurs):
-            axes3[0].text(i, v + 0.3, f"{v:.1f}%", ha='center', va='bottom', fontsize=9)
-        axes3[0].tick_params(axis='x', labelsize=8)
-
-        axes3[1].bar(labels, cits, color=colors_ci, edgecolor="white")
-        axes3[1].set_title("Carbon Intensity per m³ — CIT (kgCO₂e/ลบ.ม.)", fontsize=13, fontweight="bold")
-        axes3[1].set_ylabel("kgCO₂e / ลบ.ม.")
-        for i, v in enumerate(cits):
-            axes3[1].text(i, v + 0.001, f"{v:.4f}", ha='center', va='bottom', fontsize=9)
-        axes3[1].tick_params(axis='x', labelsize=8)
-
-        plt.tight_layout()
-        st.pyplot(fig3)
-        plt.close()
+        st.markdown(f"""
+<div class="bm-leg">
+  <span><span class="bm-ld" style="background:#e74c3c"></span>Baseline</span>
+  <span><span class="bm-ld" style="background:#e67e22"></span>VUR</span>
+  <span><span class="bm-ld" style="background:#1abc9c"></span>CIT</span>
+</div>
+<div style="font-size:12px;color:#6c757d;margin-bottom:5px;font-weight:600;">Vehicle Utilization Rate — VUR (%)</div>
+{build_bars(vur_vals, [bar_color_vur(i) for i in range(len(labels))], lambda v: f"{v:.1f}%")}
+<div style="font-size:12px;color:#6c757d;margin:12px 0 5px;font-weight:600;">Carbon Intensity per m³ — CIT (kgCO₂e/ลบ.ม.)</div>
+{build_bars(cit_vals, [bar_color_cit(i) for i in range(len(labels))], lambda v: f"{v:.4f}")}
+""", unsafe_allow_html=True)
 
 
 # =====================================================================
