@@ -1070,7 +1070,7 @@ with st.sidebar:
         "Sweep Algorithm (มาตรฐาน)",
         "Sequential Route (เส้นทางเดิมตามลำดับ)",
     ))
-    fuel_economy = st.number_input("อัตราสิ้นเปลือง (กม./ลิตร)", value=11.111)
+    fuel_economy = st.number_input("อัตราสิ้นเปลือง (กม./ลิตร)", value=11.111, format="%.3f")
     ef_value     = st.number_input("ค่า EF (kgCO₂/ลิตร)", value=2.70757, format="%.5f")
     gwp_value    = st.number_input("ค่า GWP", value=1.0)
 
